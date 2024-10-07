@@ -1,0 +1,29 @@
+(
+    dark_mode: true,
+    light: (
+        background: "#dbdfff",
+        text: "#0a0a0a",
+        text_alt: "#ba0b4e",
+        backdrop: "#00000026",
+    ),
+    dark: (
+        background: "#08090c",
+        text: "#f5f5f5",
+        text_alt: "#8326ed",
+        backdrop: "#ffffff01",
+    ),
+    sand: [
+        "#f6d6af",
+        "#f5d0a9",
+        "#f4c9a3",
+        "#f3c29d",
+        "#f2bb97",
+    ],
+    water: [
+        "#a3c8ff",
+        "#8ab8ff",
+        "#6fa8ff",
+        "#5b9eff",
+        "#4b8eff",
+    ],
+)
