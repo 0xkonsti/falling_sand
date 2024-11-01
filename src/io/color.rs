@@ -35,6 +35,7 @@ pub struct ColorPalette {
 
     sand: ColorGroup,
     water: ColorGroup,
+    wet_sand: ColorGroup,
 }
 
 impl ColorPalette {
@@ -81,6 +82,7 @@ impl ColorPalette {
         match particle_type {
             ParticleType::Sand => &self.sand,
             ParticleType::Water => &self.water,
+            ParticleType::WetSand => &self.wet_sand,
         }
     }
 
@@ -96,7 +98,7 @@ impl ColorPalette {
 impl Default for ColorPalette {
     fn default() -> Self {
         Self {
-            dark_mode: false,
+            dark_mode: true,
             light: Colors {
                 background: DEFAULT_BACKGROUND_LIGHT.to_string(),
                 text: DEFAULT_TEXT_LIGHT.to_string(),
@@ -123,6 +125,13 @@ impl Default for ColorPalette {
                 "#6fa8ff".to_string(),
                 "#5b9eff".to_string(),
                 "#4b8eff".to_string(),
+            ],
+            wet_sand: vec![
+                "#e0b88f".to_string(),
+                "#d9b189".to_string(),
+                "#d2aa83".to_string(),
+                "#cba37d".to_string(),
+                "#c49c77".to_string(),
             ],
         }
     }

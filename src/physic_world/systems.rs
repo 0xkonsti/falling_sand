@@ -22,7 +22,10 @@ pub fn setup(mut commands: Commands) {
 
 pub fn fixed_update(
     mut world: ResMut<World>,
-    mut query: Query<(&ParticleType, &mut Transform, &mut ParticleData)>,
+    mut query: ParamSet<(
+        Query<(&mut ParticleType, &mut Transform, &mut ParticleData)>,
+        Query<&mut ParticleData>,
+    )>,
 ) {
     world.update(&mut query);
 }
@@ -35,14 +38,20 @@ pub fn spawn_particle(
     color_palette: Res<ColorPalette>,
     brush: Res<Brush>,
 ) {
-    if let Some(first) = events.read().next() {
+    for event in events.read() {
         for offset in brush.current() {
-            let position = first.position + *offset;
+            let position = event.position + *offset;
             if world.occupied(&position) {
                 continue;
             }
-            let entity = particle_type.create_particle(&mut commands, &color_palette, position);
-            world.insert(&position, entity);
+
+            let particle_type = match event.particle_type {
+                Some(particle_type) => particle_type,
+                None => particle_type.0,
+            };
+
+            let entity = particle_type.create(&mut commands, &color_palette, position, 1.0);
+            world.insert(&position, entity, particle_type);
         }
     }
 }
@@ -51,10 +60,15 @@ pub fn despawn_particle(
     mut commands: Commands,
     mut events: EventReader<DespawnParticleEvent>,
     mut world: ResMut<World>,
+    mut query: Query<&mut ParticleData>,
+    brush: Res<Brush>,
 ) {
     for event in events.read() {
-        if let Some(removed) = world.remove(&event.position) {
-            commands.entity(removed).despawn();
+        for offset in brush.current() {
+            let position = event.position + *offset;
+            if let Some((removed, _)) = world.remove(&position, &mut query) {
+                commands.entity(removed).despawn();
+            }
         }
     }
 }
@@ -94,7 +108,7 @@ pub fn mouse_input(
             let position = window_to_grid_position(position, window.height(), PIXELS_PER_UNIT).as_ivec2();
 
             if mouse_button_input.pressed(MouseButton::Left) {
-                spawn_events.send(SpawnParticleEvent::new(position));
+                spawn_events.send(SpawnParticleEvent::new(position, None));
             } else if mouse_button_input.pressed(MouseButton::Right) {
                 despawn_events.send(DespawnParticleEvent::new(position));
             }

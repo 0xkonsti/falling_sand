@@ -1,4 +1,4 @@
-use bevy::{color::Color, math::VectorSpace, prelude::*, sprite::Anchor};
+use bevy::{color::Color, prelude::*, sprite::Anchor};
 use rand::prelude::*;
 
 use crate::{
@@ -17,6 +17,10 @@ const WATER_MOVEMENT: ParticleMovement = &[
     MovementOptionGroup(&[IVec2::new(1, -1), IVec2::new(-1, -1)]),
     MovementOptionGroup(&[IVec2::new(1, 0), IVec2::new(-1, 0)]),
 ];
+const WET_SAND_MOVEMENT: ParticleMovement = &[
+    MovementOptionGroup(&[IVec2::new(0, -1)]),
+    MovementOptionGroup(&[IVec2::new(1, -1), IVec2::new(-1, -1)]),
+];
 
 pub struct MovementOptionGroup(&'static [IVec2]);
 
@@ -26,11 +30,12 @@ pub type ParticleMovement = &'static [MovementOptionGroup];
 pub enum ParticleType {
     Sand,
     Water,
+    WetSand,
 }
 
 #[derive(Component, Debug, Clone)]
 pub struct ParticleData {
-    velocity: Vec2,
+    momentum: f32,
     sleep_counter: u32,
 }
 
@@ -79,21 +84,22 @@ impl ParticleType {
         match self {
             ParticleType::Sand => SAND_MOVEMENT,
             ParticleType::Water => WATER_MOVEMENT,
+            ParticleType::WetSand => WET_SAND_MOVEMENT,
         }
     }
 
-    pub fn next_position<F>(&self, position: &IVec2, data: &mut ParticleData, lookup: F) -> Option<IVec2>
+    pub fn next_position<L>(&self, position: &IVec2, data: &mut ParticleData, lookup: L) -> Option<IVec2>
     where
-        F: Fn(&IVec2) -> Option<Entity>,
+        L: Fn(&IVec2) -> Option<(Entity, ParticleType)>,
     {
         let mut changed = false;
         let mut updated = *position;
-        
-        let velocity = data.ivec2_velocity();
-        let mut y_velocity = velocity.y.abs();
+
+        let mut momentum = data.momentum.abs();
         let mut last_dir = IVec2::ZERO;
 
-        while y_velocity > 0 { // This might be an infinite loop in later versions
+        while momentum > 0.0 {
+            // This might be an infinite loop in later versions
             let mut dead_end = true;
             for group in self.movement() {
                 let mut shuffled = group.shuffled();
@@ -106,7 +112,7 @@ impl ParticleType {
                         changed = true;
                         dead_end = false;
                         updated = next;
-                        y_velocity -= 1;
+                        momentum -= 1.;
                         last_dir = direction;
 
                         break;
@@ -117,7 +123,7 @@ impl ParticleType {
                 }
             }
             if dead_end {
-                data.velocity.y = 0.0;
+                data.momentum = 0.0;
                 break;
             }
         }
@@ -137,28 +143,28 @@ impl ParticleData {
 
     pub fn sleep(&mut self) {
         self.sleep_counter = self.sleep_counter.saturating_sub(1);
-        // if self.sleep_counter == 0 {
-        //     self.velocity = Vec2::ZERO;
-        // }
+        if self.sleep_counter == 0 {
+            self.momentum = 0.0;
+        }
     }
 
     pub fn wake(&mut self) {
         self.sleep_counter = SLEEP_THRESHOLD;
     }
 
-    pub fn accelerate(&mut self, amount: Vec2) {
-        self.velocity += amount;
+    pub fn accelerate(&mut self, amount: f32) {
+        self.momentum += amount;
     }
 
-    pub fn ivec2_velocity(&self) -> IVec2 {
-        self.velocity.as_ivec2()
+    pub fn stationary(&self) -> bool {
+        self.momentum == 0.0
     }
 }
 
 impl Default for ParticleData {
     fn default() -> Self {
         Self {
-            velocity: Vec2::ZERO,
+            momentum: 0.0,
             sleep_counter: SLEEP_THRESHOLD,
         }
     }

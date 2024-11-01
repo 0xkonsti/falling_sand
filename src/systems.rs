@@ -10,7 +10,7 @@ use crate::{
     utils::color,
 };
 
-pub const PIXELS_PER_UNIT: f32 = 4.0;
+pub const PIXELS_PER_UNIT: f32 = 16.0;
 
 pub fn setup(mut commands: Commands, mut window_query: Query<&mut Window, With<PrimaryWindow>>) {
     let mut window = window_query.single_mut();
