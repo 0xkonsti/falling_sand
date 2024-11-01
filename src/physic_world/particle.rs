@@ -103,11 +103,10 @@ impl ParticleType {
         let mut changed = false;
         let mut updated = *position;
 
-        let velocity = data.ivec2_velocity();
-        let mut y_velocity = velocity.y.abs();
+        let mut momentum = data.momentum.abs();
         let mut last_dir = IVec2::ZERO;
 
-        while y_velocity > 0 {
+        while momentum > 0.0 {
             // This might be an infinite loop in later versions
             let mut dead_end = true;
             for group in self.movement() {
