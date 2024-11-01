@@ -74,10 +74,18 @@ impl ParticleType {
     }
 
     pub fn color(&self, color_palette: &Res<ColorPalette>) -> Option<Color> {
-        color_palette
-            .particle_color(self)
-            .choose(&mut thread_rng())
-            .map(|color| color::hex_to_color(color).expect("Failed to parse color for particle"))
+        let start = std::time::SystemTime::now();
+        let now = start.duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
+        let palette = color_palette.particle_color(self);
+        let mut index = (now % palette.len() as u64) as usize;
+
+        // add some randomness to the color
+        let mut rng = rand::thread_rng();
+        if rng.gen_bool(0.15) {
+            index = (index + rng.gen_range(0..palette.len())) % palette.len();
+        }
+
+        Some(color::hex_to_color(&palette[index]).expect("Failed to parse color for particle"))
     }
 
     pub fn movement(&self) -> ParticleMovement {
@@ -95,10 +103,11 @@ impl ParticleType {
         let mut changed = false;
         let mut updated = *position;
 
-        let mut momentum = data.momentum.abs();
+        let velocity = data.ivec2_velocity();
+        let mut y_velocity = velocity.y.abs();
         let mut last_dir = IVec2::ZERO;
 
-        while momentum > 0.0 {
+        while y_velocity > 0 {
             // This might be an infinite loop in later versions
             let mut dead_end = true;
             for group in self.movement() {
@@ -107,8 +116,6 @@ impl ParticleType {
                 for direction in shuffled {
                     let next = updated + direction;
                     if lookup(&next).is_none() && next.y >= 0 {
-                        // println!("Next: {:#?}", next);
-                        // return Some(next);
                         changed = true;
                         dead_end = false;
                         updated = next;
