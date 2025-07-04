@@ -1,0 +1,18 @@
+[package]
+name = "falling_sand"
+version = "0.1.0-dev"
+edition = "2024"
+description = "A simple falling sand game written in Rust"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/0xkonsti/falling_sand"
+rust-version = "1.88.0"
+authors = ["Konstantin Opora <konstantinopora@gmail.com>"]
+
+[dependencies]
+glfw = "0.59"
+glad-gl = { path = "crates/glad-gl" }
+glam = "0.30"
+log = "0.4"
+env_logger = "0.11"
+hashbrown = "0.15"
+rand = "0.9"
