@@ -8,6 +8,7 @@ use crate::{
 
 pub const GRID_SIZE: f32 = 32.0;
 const UPDATE_RATE: f64 = 1.0 / 24.0; // 60 FPS
+const GRAVITY: f32 = 2.0; // Gravity effect on cell movement
 
 pub type GridPos = (isize, isize);
 
@@ -108,26 +109,31 @@ impl Sandbox {
         let keys: Vec<GridPos> = self.grid.keys().cloned().collect();
 
         for pos in keys {
-            if let Some(cell) = self.grid.get(&pos) {
-                let update = cell.update(pos, |p| self.get_cell(p));
-                if !update.updated {
-                    continue;
-                }
+            let cell = self.grid.get(&pos).expect("Cell not found");
+            let update = cell.update(pos, |p| self.get_cell(p), GRAVITY * UPDATE_RATE as f32);
+            if !update.updated {
+                continue;
+            }
 
-                if update.swapped {
-                    self.swap_cells(&pos, update.new_pos.unwrap());
-                } else if let Some(transition) = update.transition {
-                    if transition.target == TransitionTarget::This {
-                        self.change_cell_kind(pos, transition.result);
-                    } else if let Some(new_pos) = update.new_pos {
-                        self.change_cell_kind(new_pos, transition.result);
-                    }
-                    if transition.remove {
-                        self.remove_cell(pos);
-                    }
+            if update.swapped {
+                self.swap_cells(&pos, update.new_pos.unwrap());
+            } else if let Some(transition) = update.transition {
+                if transition.target == TransitionTarget::This {
+                    self.change_cell_kind(pos, transition.result);
                 } else if let Some(new_pos) = update.new_pos {
-                    self.move_cell(&pos, &new_pos);
+                    self.change_cell_kind(new_pos, transition.result);
                 }
+                if transition.remove {
+                    self.remove_cell(pos);
+                }
+            } else if let Some(new_pos) = update.new_pos {
+                self.move_cell(&pos, &new_pos);
+            }
+
+            if let Some(new_pos) = update.new_pos
+                && let Some(cell) = self.grid.get_mut(&new_pos)
+            {
+                cell.momentum = update.new_momentum;
             }
         }
     }

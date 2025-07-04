@@ -140,53 +140,84 @@ impl CellKind {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub struct CellUpdate {
-    pub updated:    bool,
-    pub new_pos:    Option<GridPos>,
-    pub transition: Option<CellTransition>,
-    pub swapped:    bool,
+    pub updated:      bool,
+    pub new_pos:      Option<GridPos>,
+    pub new_momentum: f32,
+    pub transition:   Option<CellTransition>,
+    pub swapped:      bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub struct Cell {
     pub kind: CellKind,
     pub idx:  usize,
+
+    pub momentum: f32,
 }
 
 impl Cell {
     pub fn new(kind: CellKind, idx: usize) -> Self {
-        Self { kind, idx }
+        Self { kind, idx, momentum: 0.0 }
     }
 
-    pub fn update<'a, L>(&self, pos: GridPos, lookup: L) -> CellUpdate
+    pub fn update<'a, L>(&self, pos: GridPos, lookup: L, acceleration: f32) -> CellUpdate
     where
         L: Fn(GridPos) -> Option<&'a Cell>,
     {
-        let mut update = CellUpdate { updated: false, new_pos: None, transition: None, swapped: false };
+        let mut update = CellUpdate {
+            updated:      false,
+            new_pos:      None,
+            new_momentum: self.momentum + acceleration,
+            transition:   None,
+            swapped:      false,
+        };
 
         let transitions = self.kind.transitions();
 
-        for group in self.kind.movement() {
-            let shuffled = group.shuffled();
-            for offset in shuffled {
-                let new_pos = (pos.0 + offset.0, pos.1 + offset.1);
-                let Some(collider) = lookup(new_pos) else {
-                    update.updated = true;
-                    update.new_pos = Some(new_pos);
-                    return update;
-                };
-                if let Some(transition) = transitions.iter().find(|t| t.condition == collider.kind).cloned() {
-                    update.updated = true;
-                    update.new_pos = Some(new_pos);
-                    update.transition = Some(transition);
-                    return update;
-                } else if collider.kind.is_liquid() && !self.kind.is_liquid() {
-                    update.updated = true;
-                    update.new_pos = Some(new_pos);
-                    update.swapped = true;
-                    return update;
+        let mut tmp_pos = pos;
+        let mut momentum = update.new_momentum;
+        let mut last_dir = (0, 0);
+
+        while momentum > 0.0 {
+            let mut dead_end = true;
+            for group in self.kind.movement() {
+                let mut shuffled = group.shuffled();
+                shuffled.insert(0, last_dir); // Try to follow the last direction first
+                for offset in shuffled {
+                    let new_pos = (tmp_pos.0 + offset.0, tmp_pos.1 + offset.1);
+                    let Some(collider) = lookup(new_pos) else {
+                        update.updated = true;
+                        update.new_pos = Some(new_pos);
+                        tmp_pos = new_pos;
+
+                        dead_end = false;
+                        last_dir = offset;
+                        momentum -= 1.0; // Decrease momentum TODO: do this better lul
+                        break;
+                    };
+                    if let Some(transition) = transitions.iter().find(|t| t.condition == collider.kind).cloned() {
+                        update.updated = true;
+                        update.new_pos = Some(new_pos);
+                        update.transition = Some(transition);
+                        update.new_momentum = 0.0;
+                        return update;
+                    } else if collider.kind.is_liquid() && !self.kind.is_liquid() {
+                        update.updated = true;
+                        update.new_pos = Some(new_pos);
+                        update.swapped = true;
+                        update.new_momentum = 0.0;
+                        return update;
+                    }
                 }
+                if !dead_end {
+                    break;
+                }
+            }
+            if dead_end {
+                update.new_momentum = 0.0;
+                break;
             }
         }
 
