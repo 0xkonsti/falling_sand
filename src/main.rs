@@ -23,7 +23,7 @@ const QUAD_INDICES: [u32; 6] = [0, 1, 3, 1, 2, 3];
 fn main() {
     env_logger::Builder::from_default_env().filter_level(log::LevelFilter::Debug).init();
 
-    let w_config = WindowConfig::default().with_title("Falling Sand").with_vsync(false);
+    let w_config = WindowConfig::default().with_title("Falling Sand").with_vsync(true);
     // .with_size((2560, 1440))
     // .with_mode(WindowMode::Fullscreen);
     // w_config.debug = true;

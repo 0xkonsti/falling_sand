@@ -2,6 +2,8 @@ use rand::seq::{IndexedRandom, SliceRandom};
 
 use crate::{graphics::Color, sandbox::sandbox::GridPos};
 
+const SLEEP_THRESHOLD: u32 = 10;
+
 pub struct MovementOptionGroup(&'static [GridPos]);
 pub type CellMovement = &'static [MovementOptionGroup];
 
@@ -22,7 +24,6 @@ const SAND_MOVEMENT: CellMovement = &[
 #[rustfmt::skip]
 const WET_SAND_MOVEMENT: CellMovement = &[
     MovementOptionGroup(&[(0, -1)]),
-    MovementOptionGroup(&[(1, -1), (-1, -1)])
 ];
 
 #[rustfmt::skip]
@@ -151,15 +152,29 @@ pub struct CellUpdate {
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub struct Cell {
-    pub kind: CellKind,
-    pub idx:  usize,
-
+    pub kind:     CellKind,
+    pub idx:      usize,
     pub momentum: f32,
+    pub sleeping: bool,
+
+    sleep_counter: u32,
 }
 
 impl Cell {
     pub fn new(kind: CellKind, idx: usize) -> Self {
-        Self { kind, idx, momentum: 0.0 }
+        Self { kind, idx, momentum: 0.0, sleeping: false, sleep_counter: 0 }
+    }
+
+    pub fn wake(&mut self) {
+        self.sleep_counter = 0;
+        self.sleeping = false;
+    }
+
+    pub fn sleep(&mut self) {
+        self.sleep_counter += 1;
+        if self.sleep_counter >= SLEEP_THRESHOLD {
+            self.sleeping = true;
+        }
     }
 
     pub fn update<'a, L>(&self, pos: GridPos, lookup: L, acceleration: f32) -> CellUpdate
