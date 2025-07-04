@@ -8,7 +8,7 @@ use crate::{
 
 pub const GRID_SIZE: f32 = 32.0;
 const UPDATE_RATE: f64 = 1.0 / 24.0; // 60 FPS
-const GRAVITY: f32 = 2.0; // Gravity effect on cell movement
+const GRAVITY: f32 = 4.0; // Gravity effect on cell movement
 
 pub type GridPos = (isize, isize);
 

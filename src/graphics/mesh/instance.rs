@@ -75,7 +75,7 @@ impl Instance {
         self.instances.len()
     }
 
-    pub fn add_instance(&mut self, instance: InstanceData) {
+    pub fn add_instance(&mut self, instance: InstanceData) -> usize {
         if self.instances.len() >= self.instance_size {
             let new_capacity = self.instance_size * 2;
             self.resize_instance_buffer(new_capacity);
@@ -83,6 +83,8 @@ impl Instance {
 
         self.instances.push(instance);
         self.update = true;
+
+        self.instances.len() - 1
     }
 
     pub fn remove_instance(&mut self, index: usize) {

@@ -78,6 +78,9 @@ impl Window {
 
             gl::Enable(gl::MULTISAMPLE);
 
+            // gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
+            // gl::Enable(gl::BLEND);
+
             if config.debug {
                 gl::PolygonMode(gl::FRONT_AND_BACK, gl::LINE);
             }

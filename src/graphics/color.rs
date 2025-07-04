@@ -1,5 +1,6 @@
 use crate::utils::Flattenable;
 
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Color {
     pub r: f32,
     pub g: f32,

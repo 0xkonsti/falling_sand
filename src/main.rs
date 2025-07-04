@@ -2,6 +2,8 @@ mod graphics;
 mod sandbox;
 mod utils;
 
+use std::{cell::RefCell, rc::Rc};
+
 use glam::{Vec2, Vec3};
 use graphics::*;
 use log::error;
@@ -22,6 +24,8 @@ fn main() {
     env_logger::Builder::from_default_env().filter_level(log::LevelFilter::Debug).init();
 
     let w_config = WindowConfig::default().with_title("Falling Sand").with_vsync(false);
+    // .with_size((2560, 1440))
+    // .with_mode(WindowMode::Fullscreen);
     // w_config.debug = true;
 
     let Some(mut window) = Window::new(&w_config) else {
@@ -40,9 +44,9 @@ fn main() {
 
     let material = Material::new(Shader::instance());
 
-    let mut sandbox = Sandbox::new(instance);
+    let sandbox = Rc::new(RefCell::new(Sandbox::new(instance)));
 
-    let mut current_kind = CellKind::Sand;
+    let mut brush = Brush::new(Rc::clone(&sandbox));
 
     let mut dt;
     let mut last_frame = std::time::Instant::now();
@@ -109,13 +113,19 @@ fn main() {
                         match key {
                             glfw::Key::Escape => window.close(),
                             glfw::Key::Num1 => {
-                                current_kind = CellKind::Sand;
+                                brush.kind = CellKind::Sand;
                             }
                             glfw::Key::Num2 => {
-                                current_kind = CellKind::Stone;
+                                brush.kind = CellKind::Stone;
                             }
                             glfw::Key::Num3 => {
-                                current_kind = CellKind::Water;
+                                brush.kind = CellKind::Water;
+                            }
+                            glfw::Key::Q => {
+                                brush.size = brush.size.previous();
+                            }
+                            glfw::Key::E => {
+                                brush.size = brush.size.next();
                             }
                             _ => {}
                         }
@@ -126,20 +136,22 @@ fn main() {
         }
         if mouse_pressed[0] {
             let world_pos = get_world_position(&camera, cursor_pos);
-            sandbox.insert_cell(Sandbox::grid_pos_from_world_pos(world_pos), current_kind);
+            // sandbox.insert_cell(Sandbox::grid_pos_from_world_pos(world_pos), current_kind);
+            brush.spawn(Sandbox::grid_pos_from_world_pos(world_pos));
         }
 
         if mouse_pressed[1] {
             let world_pos = get_world_position(&camera, cursor_pos);
-            sandbox.remove_cell(Sandbox::grid_pos_from_world_pos(world_pos));
+            // sandbox.remove_cell(Sandbox::grid_pos_from_world_pos(world_pos));
+            brush.remove(Sandbox::grid_pos_from_world_pos(world_pos));
         }
 
         window.clear();
 
-        sandbox.update(dt);
+        sandbox.borrow_mut().update(dt);
 
         material.apply(&[(PROJECTION_UNIFORM, ShaderUniform::Mat4(camera.projection_matrix().to_cols_array()))]);
-        sandbox.draw();
+        sandbox.borrow_mut().draw();
 
         window.swap_buffers();
     }
