@@ -71,29 +71,15 @@ fn main() {
 
                     cursor_pos.x = x as f32;
                     cursor_pos.y = y as f32;
-
-                    if mouse_pressed[0] {
-                        let world_pos = get_world_position(&camera, cursor_pos);
-                        sandbox.insert_cell(Sandbox::grid_pos_from_world_pos(world_pos), current_kind);
-                    }
-
-                    if mouse_pressed[1] {
-                        let world_pos = get_world_position(&camera, cursor_pos);
-                        sandbox.remove_cell(Sandbox::grid_pos_from_world_pos(world_pos));
-                    }
                 }
                 glfw::WindowEvent::MouseButton(button, action, _modifiers) => {
                     if action == glfw::Action::Press {
                         match button {
                             glfw::MouseButton::Button1 => {
                                 mouse_pressed[0] = true;
-                                let world_pos = get_world_position(&camera, cursor_pos);
-                                sandbox.insert_cell(Sandbox::grid_pos_from_world_pos(world_pos), current_kind);
                             }
                             glfw::MouseButton::Button2 => {
                                 mouse_pressed[1] = true;
-                                let world_pos = get_world_position(&camera, cursor_pos);
-                                sandbox.remove_cell(Sandbox::grid_pos_from_world_pos(world_pos));
                             }
                             glfw::MouseButton::Button3 => {
                                 mouse_pressed[2] = true;
@@ -137,6 +123,15 @@ fn main() {
                 }
                 _ => {}
             }
+        }
+        if mouse_pressed[0] {
+            let world_pos = get_world_position(&camera, cursor_pos);
+            sandbox.insert_cell(Sandbox::grid_pos_from_world_pos(world_pos), current_kind);
+        }
+
+        if mouse_pressed[1] {
+            let world_pos = get_world_position(&camera, cursor_pos);
+            sandbox.remove_cell(Sandbox::grid_pos_from_world_pos(world_pos));
         }
 
         window.clear();

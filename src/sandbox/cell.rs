@@ -1,4 +1,4 @@
-use rand::seq::SliceRandom;
+use rand::seq::{IndexedRandom, SliceRandom};
 
 use crate::{graphics::Color, sandbox::sandbox::GridPos};
 
@@ -20,57 +20,176 @@ const SAND_MOVEMENT: CellMovement = &[
 ];
 
 #[rustfmt::skip]
+const WET_SAND_MOVEMENT: CellMovement = &[
+    MovementOptionGroup(&[(0, -1)]),
+    MovementOptionGroup(&[(1, -1), (-1, -1)])
+];
+
+#[rustfmt::skip]
 const WATER_MOVEMENT: CellMovement = &[
     MovementOptionGroup(&[(0, -1)]),
     MovementOptionGroup(&[(1, -1), (-1, -1)]),
     MovementOptionGroup(&[(1, 0), (-1, 0)]),
 ];
 
+const SAND_COLOR: [Color; 5] = [
+    Color::new(0.965, 0.843, 0.690, 1.0),
+    Color::new(0.949, 0.824, 0.663, 1.0),
+    Color::new(0.925, 0.800, 0.635, 1.0),
+    Color::new(0.906, 0.769, 0.588, 1.0),
+    Color::new(0.882, 0.749, 0.573, 1.0),
+];
+
+const WET_SAND_COLOR: [Color; 5] = [
+    Color::new(0.929, 0.694, 0.392, 1.0),
+    Color::new(0.906, 0.678, 0.384, 1.0),
+    Color::new(0.871, 0.659, 0.376, 1.0),
+    Color::new(0.851, 0.631, 0.345, 1.0),
+    Color::new(0.820, 0.616, 0.345, 1.0),
+];
+
+const STONE_COLOR: [Color; 5] = [
+    Color::new(0.313, 0.313, 0.313, 1.0),
+    Color::new(0.345, 0.345, 0.345, 1.0),
+    Color::new(0.392, 0.392, 0.392, 1.0),
+    Color::new(0.254, 0.254, 0.254, 1.0),
+    Color::new(0.196, 0.196, 0.196, 1.0),
+];
+
+const WATER_COLOR: [Color; 5] = [
+    Color::new(0.000, 0.624, 0.784, 1.0),
+    Color::new(0.000, 0.671, 0.843, 1.0),
+    Color::new(0.000, 0.710, 0.894, 1.0),
+    Color::new(0.122, 0.757, 0.918, 1.0),
+    Color::new(0.224, 0.816, 0.969, 1.0),
+];
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum TransitionTarget {
+    This,
+    Other,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct CellTransition {
+    condition:  CellKind,
+    pub result: CellKind,
+    pub remove: bool,
+    pub target: TransitionTarget,
+}
+
+const SAND_TRANSITIONS: &[CellTransition] = &[CellTransition {
+    condition: CellKind::Water,
+    result:    CellKind::WetSand,
+    remove:    true,
+    target:    TransitionTarget::Other,
+}];
+
+const WET_SAND_TRANSITIONS: &[CellTransition] = &[];
+
+const STONE_TRANSITIONS: &[CellTransition] = &[];
+
+const WATER_TRANSITIONS: &[CellTransition] = &[CellTransition {
+    condition: CellKind::Sand,
+    result:    CellKind::WetSand,
+    remove:    true,
+    target:    TransitionTarget::Other,
+}];
+
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum CellKind {
     Sand,
+    WetSand,
     Stone,
     Water,
 }
 
 impl CellKind {
-    pub fn color(&self) -> Color {
+    pub fn color(&self) -> &Color {
         match self {
-            CellKind::Sand => Color::hex(0xE3AD6BFF),
-            CellKind::Stone => Color::hex(0x3B3B3BFF),
-            CellKind::Water => Color::hex(0x4AACE8FF),
+            CellKind::Sand => &SAND_COLOR,
+            CellKind::WetSand => &WET_SAND_COLOR,
+            CellKind::Stone => &STONE_COLOR,
+            CellKind::Water => &WATER_COLOR,
         }
+        .choose(&mut rand::rng())
+        .unwrap()
     }
 
     pub fn movement(&self) -> CellMovement {
         match self {
             CellKind::Sand => SAND_MOVEMENT,
+            CellKind::WetSand => WET_SAND_MOVEMENT,
             CellKind::Stone => &[],
             CellKind::Water => WATER_MOVEMENT,
         }
     }
 
-    pub fn next_position<'a, L>(&self, pos: GridPos, lookup: L) -> Option<GridPos>
-    where
-        L: Fn(GridPos) -> Option<&'a Cell>,
-    {
-        for group in self.movement() {
-            let shuffled = group.shuffled();
-            for offset in shuffled {
-                let new_pos = (pos.0 + offset.0, pos.1 + offset.1);
-                if lookup(new_pos).is_none() {
-                    return Some(new_pos);
-                }
-            }
+    pub fn transitions(&self) -> &[CellTransition] {
+        match self {
+            CellKind::Sand => SAND_TRANSITIONS,
+            CellKind::WetSand => WET_SAND_TRANSITIONS,
+            CellKind::Stone => STONE_TRANSITIONS,
+            CellKind::Water => WATER_TRANSITIONS,
         }
-        None
+    }
+
+    pub fn is_liquid(&self) -> bool {
+        matches!(self, CellKind::Water)
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct CellUpdate {
+    pub updated:    bool,
+    pub new_pos:    Option<GridPos>,
+    pub transition: Option<CellTransition>,
+    pub swapped:    bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub struct Cell {
     pub kind: CellKind,
+    pub idx:  usize,
+}
 
-    pub idx: usize,
+impl Cell {
+    pub fn new(kind: CellKind, idx: usize) -> Self {
+        Self { kind, idx }
+    }
+
+    pub fn update<'a, L>(&self, pos: GridPos, lookup: L) -> CellUpdate
+    where
+        L: Fn(GridPos) -> Option<&'a Cell>,
+    {
+        let mut update = CellUpdate { updated: false, new_pos: None, transition: None, swapped: false };
+
+        let transitions = self.kind.transitions();
+
+        for group in self.kind.movement() {
+            let shuffled = group.shuffled();
+            for offset in shuffled {
+                let new_pos = (pos.0 + offset.0, pos.1 + offset.1);
+                let Some(collider) = lookup(new_pos) else {
+                    update.updated = true;
+                    update.new_pos = Some(new_pos);
+                    return update;
+                };
+                if let Some(transition) = transitions.iter().find(|t| t.condition == collider.kind).cloned() {
+                    update.updated = true;
+                    update.new_pos = Some(new_pos);
+                    update.transition = Some(transition);
+                    return update;
+                } else if collider.kind.is_liquid() && !self.kind.is_liquid() {
+                    update.updated = true;
+                    update.new_pos = Some(new_pos);
+                    update.swapped = true;
+                    return update;
+                }
+            }
+        }
+
+        update
+    }
 }

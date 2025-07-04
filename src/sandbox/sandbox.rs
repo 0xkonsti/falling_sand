@@ -3,7 +3,7 @@ use hashbrown::HashMap;
 
 use crate::{
     graphics::{Color, Instance, InstanceData, Transform},
-    sandbox::cell::{Cell, CellKind},
+    sandbox::cell::{Cell, CellKind, TransitionTarget},
 };
 
 pub const GRID_SIZE: f32 = 32.0;
@@ -47,7 +47,7 @@ impl Sandbox {
         if self.occupied(&pos) {
             return;
         }
-        let cell = Cell { kind: cell_kind, idx: self.mesh_instance.instance_count() };
+        let cell = Cell::new(cell_kind, self.mesh_instance.instance_count());
         self.grid.insert(pos, cell);
         self.add_instance(&pos, &cell);
     }
@@ -79,6 +79,25 @@ impl Sandbox {
         }
     }
 
+    pub fn swap_cells(&mut self, pos1: &GridPos, pos2: GridPos) {
+        let cell1_kind = self.grid.get(pos1).map(|c| c.kind);
+        let cell2_kind = self.grid.get(&pos2).map(|c| c.kind);
+
+        if cell1_kind.is_none() || cell2_kind.is_none() {
+            return; // One of the cells does not exist
+        }
+
+        self.change_cell_kind(*pos1, cell2_kind.unwrap());
+        self.change_cell_kind(pos2, cell1_kind.unwrap());
+    }
+
+    pub fn change_cell_kind(&mut self, pos: GridPos, new_kind: CellKind) {
+        if let Some(cell) = self.grid.get_mut(&pos) {
+            cell.kind = new_kind;
+            self.mesh_instance.update_instance_color(cell.idx, &new_kind.color());
+        }
+    }
+
     pub fn update(&mut self, dt: f64) {
         self.time_since_last_update += dt;
         if self.time_since_last_update < UPDATE_RATE {
@@ -90,10 +109,25 @@ impl Sandbox {
 
         for pos in keys {
             if let Some(cell) = self.grid.get(&pos) {
-                let Some(new_pos) = cell.kind.next_position(pos, |p| self.get_cell(p)) else {
+                let update = cell.update(pos, |p| self.get_cell(p));
+                if !update.updated {
                     continue;
-                };
-                self.move_cell(&pos, &new_pos);
+                }
+
+                if update.swapped {
+                    self.swap_cells(&pos, update.new_pos.unwrap());
+                } else if let Some(transition) = update.transition {
+                    if transition.target == TransitionTarget::This {
+                        self.change_cell_kind(pos, transition.result);
+                    } else if let Some(new_pos) = update.new_pos {
+                        self.change_cell_kind(new_pos, transition.result);
+                    }
+                    if transition.remove {
+                        self.remove_cell(pos);
+                    }
+                } else if let Some(new_pos) = update.new_pos {
+                    self.move_cell(&pos, &new_pos);
+                }
             }
         }
     }

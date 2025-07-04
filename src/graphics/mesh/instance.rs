@@ -16,7 +16,7 @@ pub struct InstanceData {
 }
 
 impl InstanceData {
-    pub fn new(transform: Transform, color: Color) -> Self {
+    pub fn new(transform: Transform, color: &Color) -> Self {
         Self { transform: transform.flatten(), color: color.as_array() }
     }
 
@@ -107,6 +107,13 @@ impl Instance {
         assert!(index < self.instances.len(), "Index out of bounds for instance data.");
 
         self.instances[index].set_transform(transform);
+        self.update = true;
+    }
+
+    pub fn update_instance_color(&mut self, index: usize, color: &Color) {
+        assert!(index < self.instances.len(), "Index out of bounds for instance data.");
+
+        self.instances[index].color = color.as_array();
         self.update = true;
     }
 
